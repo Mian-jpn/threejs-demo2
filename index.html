@@ -82,6 +82,32 @@
     #context-menu li:hover {
       background-color: #eee;
     }
+
+    #rotate-submenu {
+      position: absolute;
+      background-color: white;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+      padding: 4px 0;
+      z-index: 101;
+      font-family: sans-serif;
+    }
+
+    #rotate-submenu ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    #rotate-submenu li {
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+
+    #rotate-submenu li:hover {
+      background-color: #eee;
+    }
   </style>
 </head>
 
@@ -96,6 +122,13 @@
     <ul>
       <li id="menu-delete">🗑️ 削除</li>
       <li id="menu-duplicate">📦 複製</li>
+      <li id="menu-rotate">🔄 回転</li>
+    </ul>
+  </div>
+  <div id="rotate-submenu" style="display: none;">
+    <ul>
+      <li id="rotate-x">X軸で回転</li>
+      <li id="rotate-y">Y軸で回転</li>
     </ul>
   </div>
   <script type="module" src="./js/main.js"></script>

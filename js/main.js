@@ -106,6 +106,50 @@ document.getElementById("menu-duplicate").addEventListener("click", () => {
   contextMenu.style.display = "none";
 });
 
+//右クリックで回転を選択したとき
+document.getElementById("menu-rotate").addEventListener("click", (e) => {
+  if (!selectedBox) return;
+
+  // 📌 サブメニューを「回転」メニューのすぐ下に表示
+  const submenu = document.getElementById("rotate-submenu");
+  submenu.style.left = `${e.clientX}px`;
+  submenu.style.top = `${e.clientY + 30}px`; // 少し下にずらす
+  submenu.style.display = "block";
+
+  // 元のメニューは隠す
+  contextMenu.style.display = "none";
+});
+
+//X軸方向に回転
+document.getElementById("rotate-x").addEventListener("click", () => {
+  if (selectedBox) {
+    selectedBox.rotation.x += Math.PI / 2;
+  }
+  document.getElementById("rotate-submenu").style.display = "none";
+});
+
+//Y軸方向に回転
+document.getElementById("rotate-y").addEventListener("click", () => {
+  if (selectedBox) {
+    selectedBox.rotation.y += Math.PI / 2;
+  }
+  document.getElementById("rotate-submenu").style.display = "none";
+});
+
+//toolバーを削除するときの動作。条件文を入れないとサブメニュー出てきてほしいところでメニューが消えてしまう。
+window.addEventListener("click", (event) => {
+  // ✅ toolbar・メニュー内をクリックしたときは閉じない
+  const clickedInsideMenu =
+    event.target.closest("#context-menu") ||
+    event.target.closest("#rotate-submenu") ||
+    event.target.closest("#toolbar");
+
+  if (!clickedInsideMenu) {
+    document.getElementById("rotate-submenu").style.display = "none";
+    contextMenu.style.display = "none";
+  }
+});
+
 //左クリックで木材を選択したときに、長さを出すようにしている。
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
