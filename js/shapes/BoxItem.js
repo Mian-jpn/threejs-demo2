@@ -2,7 +2,8 @@ import * as THREE from 'https://esm.sh/three@0.155.0';
 
 export class BoxItem {
   constructor(width, height, depth, color = 0xdeb887) {
-    const geometry = new THREE.BoxGeometry(width, height, depth);
+    const scale = 0.01; // ← mm→ユニット
+    const geometry = new THREE.BoxGeometry(width*scale, height*scale, depth*scale);
     const material = new THREE.MeshStandardMaterial({ color });
     const mesh = new THREE.Mesh(geometry, material);
 
