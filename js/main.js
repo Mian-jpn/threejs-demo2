@@ -67,18 +67,71 @@ window.addEventListener('contextmenu', (event) => {
 });
 
 document.getElementById("btn-2x4").addEventListener("click", () => {
-    selectBoxType("2x4");
+  selectBoxType("2x4");
 });
 
 document.getElementById("btn-1x6").addEventListener("click", () => {
-    selectBoxType("1x6");
+  selectBoxType("1x6");
 });
 
 // ✅ 初期状態として2x4を選択しておく。　これは上のボタン定義の後に書く必要がある。
 selectBoxType("2x4");
 
-let dragControls; // ← 外で宣言しておく
+//木材を選択したときに、長さを出すようにしている。
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let selectedBox = null;
 
+window.addEventListener("click", (event) => {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+
+  const intersects = raycaster.intersectObjects(draggableObjects, true);
+
+  if (intersects.length > 0) {
+    const mesh = intersects[0].object;
+
+    // ✅ もし同じ Box をもう一度クリックしたら選択解除
+    if (selectedBox === mesh) {
+      // 色を元に戻す
+      selectedBox.material.color.set(selectedBox.originalColor);
+      selectedBox = null;
+
+      // 表示もリセット
+      document.getElementById("info").innerText = "幅: -　高さ: -　奥行: -";
+      return;
+    }
+
+    // ✅ 前回の選択をリセット（色を戻す）
+    if (selectedBox) {
+      selectedBox.material.color.set(selectedBox.originalColor);
+    }
+
+    // ✅ 今回の選択を記録
+    selectedBox = mesh;
+
+    // 元の色を保存（まだ保存してなければ）
+    if (!selectedBox.originalColor) {
+      selectedBox.originalColor = selectedBox.material.color.getHex();
+    }
+
+    // 色を暗くする
+    const color = selectedBox.material.color;
+    color.setRGB(color.r * 0.8, color.g * 0.8, color.b * 0.8);
+
+    // サイズ表示
+    const size = mesh.geometry.parameters;
+    const width = (size.width * mesh.scale.x * 100).toFixed(1);
+    const height = (size.height * mesh.scale.y * 100).toFixed(1);
+    const depth = (size.depth * mesh.scale.z * 100).toFixed(1);
+
+    document.getElementById("info").innerText =
+      `幅: ${width}mm　高さ: ${height}mm　奥行: ${depth}mm`;
+  }
+});
+let dragControls; // ← 外で宣言しておく
 function setupDragControls() {
   if (dragControls) dragControls.dispose(); // 古いコントロールを破棄
   dragControls = new DragControls(draggableObjects, camera, renderer.domElement);
