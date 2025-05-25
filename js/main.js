@@ -37,7 +37,7 @@ let selectedBoxSpec = boxTypeMap[selectedType]; // 現在選択中の材種
 let position_num = 0;
 
 // オブジェクト（Box）を複数格納しておく配列
-const draggableObjects = [];
+const draggableObjects = []; //BoxItem[]
 
 const contextMenu = document.getElementById("context-menu");
 
@@ -80,11 +80,11 @@ document.getElementById("menu-duplicate").addEventListener("click", () => {
   if (!selectedBox) return;
 
   // 1. サイズを取得（mesh を前提とします）
-  const geo   = selectedBox.geometry.parameters;
+  const geo = selectedBox.geometry.parameters;
   const scale = selectedBox.scale;
-  const width  = geo.width  * scale.x * 100;
+  const width = geo.width * scale.x * 100;
   const height = geo.height * scale.y * 100;
-  const depth  = geo.depth  * scale.z * 100;
+  const depth = geo.depth * scale.z * 100;
 
   // 2. 色を取得
   const color = selectedBox.originalColor || selectedBox.material.color.getHex();
@@ -106,7 +106,7 @@ document.getElementById("menu-duplicate").addEventListener("click", () => {
 
   // 7. draggableObjects には “mesh” 配列で渡す or “BoxItem” 配列で map() するか
   //    → 今回は mesh の配列に合わせる例を示します
-  draggableObjects.push(newBox.mesh);
+  draggableObjects.push(newBox);
 
   // 8. DragControls を再設定
   setupDragControls();
@@ -163,54 +163,130 @@ window.addEventListener("click", (event) => {
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let selectedBox = null;
+let selectedBoxes = [];
 
 window.addEventListener("click", (event) => {
-  // ✅ HTMLのUIをクリックしているときはThree.jsの選択処理をスキップ
-  const tag = event.target.tagName.toLowerCase();
-  if (tag === "button" || tag === "li" || tag === "div" && event.target.id === "toolbar") return;
+
+  // draggableObjects は BoxItem の配列 → mesh の配列に変換
+  const meshes = draggableObjects.map(b => b.mesh);
+
+  // (A) Shift＋クリック → マルチ選択
+  if (event.shiftKey) {
+    // 1) UI 部分でのクリックは無視
+    if (
+      event.target.closest("#toolbar") ||
+      event.target.closest("#context-menu") ||
+      event.target.closest("#rotate-submenu") ||
+      event.target.closest("#align-toolbar")
+    ) return;
+
+    // 2) マウス座標を Three.js 用にセット & Raycaster 更新
+    setMousePositionFromEvent(event);
+    raycaster.setFromCamera(mouse, camera);
+
+    // 3) BoxItem の mesh 配列で交差判定
+    const meshes = draggableObjects.map(b => b.mesh);
+    const intersects = raycaster.intersectObjects(meshes, true);
+    if (intersects.length === 0) return;
+
+    // 4) ヒットした mesh を取り出し、
+    const pickedMesh = intersects[0].object;
+
+    // 5) そこから元の BoxItem を逆引き
+    const box = draggableObjects.find(b => b.mesh === pickedMesh);
+    if (!box) return;
+
+    // 6) 選択配列にあれば外し、なければ追加
+    const idx = selectedBoxes.indexOf(box);
+    if (idx >= 0) selectedBoxes.splice(idx, 1);
+    else selectedBoxes.push(box);
+
+    // 7) ビジュアル更新＆整列ツールバー表示
+    updateSelectionVisuals();
+    showAlignToolbar();
+
+    // 単一選択処理は走らせない
+    return;
+  }
+
+  // (B) Shiftなし → 単一選択
+  //  UI 上のクリックは無視
+  if (
+    event.target.closest("#toolbar") ||
+    event.target.closest("#context-menu") ||
+    event.target.closest("#rotate-submenu") ||
+    event.target.closest("#align-toolbar")
+  ) {
+    return;
+  }
 
   // 👇ここからThree.js上のオブジェクト選択処理
+  // マウス位置セット & Raycaster 更新
   setMousePositionFromEvent(event);
   raycaster.setFromCamera(mouse, camera);
 
-  const intersects = raycaster.intersectObjects(draggableObjects, true);
-  if (intersects.length > 0) {
-    const mesh = intersects[0].object;
-
-    if (selectedBox === mesh) {
-      selectedBox.material.color.set(selectedBox.originalColor);
+  // Raycast 実行（Mesh 配列を使う）
+  const intersects = raycaster.intersectObjects(meshes, true);
+  if (intersects.length === 0) {
+    // (1) 単一選択を解除
+    if (selectedBox) {
+      selectedBox.mesh.material.color.set(selectedBox.originalColor);
       selectedBox = null;
       document.getElementById("info").innerText = "幅: -　高さ: -　奥行: -";
-      return;
     }
-
-    if (selectedBox) {
-      selectedBox.material.color.set(selectedBox.originalColor);
-    }
-
-    selectedBox = mesh;
-
-    if (!selectedBox.originalColor) {
-      selectedBox.originalColor = selectedBox.material.color.getHex();
-    }
-
-    const color = selectedBox.material.color;
-    color.setRGB(color.r * 0.8, color.g * 0.8, color.b * 0.8);
-
-    const size = mesh.geometry.parameters;
-    const width = (size.width * mesh.scale.x * 100).toFixed(1);
-    const height = (size.height * mesh.scale.y * 100).toFixed(1);
-    const depth = (size.depth * mesh.scale.z * 100).toFixed(1);
-
-    document.getElementById("info").innerText =
-      `幅: ${width}mm　高さ: ${height}mm　奥行: ${depth}mm`;
+    return;
   }
+  //(2) 複数選択リストをクリア
+  selectedBoxes = [];
+
+  // (3) ハイライトをすべて元に戻す
+  updateSelectionVisuals();
+
+  // (4) 整列ツールバーを隠す
+  showAlignToolbar();
+
+
+  // Boxを選択しているとき
+  // 最前面の Mesh を取り出し
+  const pickedMesh = intersects[0].object;
+
+  // それを持つ BoxItem を探す
+  const box = draggableObjects.find(b => b.mesh === pickedMesh);
+  if (!box) return;
+
+  // すでに同じ BoxItem を選んでいたら選択解除
+  if (selectedBox === box) {
+    selectedBox.mesh.material.color.set(selectedBox.originalColor);
+    selectedBox = null;
+    document.getElementById("info").innerText = "幅: -　高さ: -　奥行: -";
+    return;
+  }
+
+  // 前の選択解除（あれば）
+  if (selectedBox) {
+    selectedBox.mesh.material.color.set(selectedBox.originalColor);
+  }
+  // 新しい選択を記録 & ハイライト
+  selectedBox = box;
+  if (!selectedBox.originalColor) {
+    selectedBox.originalColor = selectedBox.mesh.material.color.getHex();
+  }
+
+  const c = selectedBox.mesh.material.color;
+  c.setRGB(c.r * 0.8, c.g * 0.8, c.b * 0.8);
+
+  // サイズ表示
+  const p = selectedBox.mesh.geometry.parameters;
+  const w = (p.width * selectedBox.mesh.scale.x * 100).toFixed(1);
+  const h = (p.height * selectedBox.mesh.scale.y * 100).toFixed(1);
+  const d = (p.depth * selectedBox.mesh.scale.z * 100).toFixed(1);
+  document.getElementById("info").innerText = `幅: ${w}mm　高さ: ${h}mm　奥行: ${d}mm`;
 });
 
 let dragControls; // ← 外で宣言しておく
 function setupDragControls() {
   if (dragControls) dragControls.dispose(); // 古いコントロールを破棄
-  dragControls = new DragControls(draggableObjects, camera, renderer.domElement);
+  dragControls = new DragControls(draggableObjects.map(b => b.mesh), camera, renderer.domElement);
 
   dragControls.addEventListener('dragstart', () => {
     orbit.enabled = false;
@@ -249,7 +325,7 @@ function createBox(w, h, d) {
   box.setPosition(position_num, 0, 0);
   position_num += 0.2;
   box.addToScene(scene);
-  draggableObjects.push(box.mesh);
+  draggableObjects.push(box);
   setupDragControls();
 }
 
@@ -266,3 +342,50 @@ document.getElementById("btn-2x4").addEventListener("click", () => {
 document.getElementById("btn-1x6").addEventListener("click", () => {
   selectBoxType("1x6");
 });
+
+function showAlignToolbar() {
+  const tb = document.getElementById("align-toolbar");
+  tb.style.display = selectedBoxes.length > 1 ? "block" : "none";
+}
+
+//横揃え（Y座標を平均に揃える）
+document.getElementById("align-h").addEventListener("click", () => {
+  const avgY = selectedBoxes.reduce((sum, b) => sum + b.mesh.position.y, 0) / selectedBoxes.length;
+  selectedBoxes.forEach(b => b.mesh.position.y = avgY);
+})
+
+//縦揃え（X座標を平均に揃える）
+document.getElementById("align-v").addEventListener("click", () => {
+  const avgX = selectedBoxes.reduce((sum, b) => sum + b.mesh.position.x, 0) / selectedBoxes.length;
+  selectedBoxes.forEach(b => b.mesh.position.x = avgX);
+})
+
+//UIを閉じる
+window.addEventListener("click", event => {
+  if (!event.shiftKey) selectedBoxes = [];
+  showAlignToolbar();
+})
+
+//Shiftクリックの時にBoxに黄色くする
+function updateSelectionVisuals() {
+  // 1) まず全 Box を元の色に戻す
+  draggableObjects.forEach(box => {
+    const mat = box.mesh.material;
+    // originalColor がなければ記憶しておく
+    if (box.originalColor == null) {
+      box.originalColor = mat.color.getHex();
+    }
+    // 元色にリセット
+    mat.color.setHex(box.originalColor);
+  });
+
+  // 2) 選択中の Box にだけ黄色味を追加
+  selectedBoxes.forEach(box => {
+    const mat = box.mesh.material;
+    // THREE.Color の offsetHSL メソッドで HSL を少しずらす
+    //   0.1 は色相を少し回す（黄寄りに）、
+    //   第２引数の 0 は彩度はそのまま、
+    //   第３引数の +0.1 で少し明るく
+    mat.color.offsetHSL(0.1, 0.0, 0.1);
+  });
+}
