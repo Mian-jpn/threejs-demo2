@@ -75,34 +75,43 @@ document.getElementById("menu-delete").addEventListener("click", () => {
   }
 });
 
-//右クリックで複製を選択したとき
+//複製ボタンを押したとき
 document.getElementById("menu-duplicate").addEventListener("click", () => {
   if (!selectedBox) return;
 
-  // 1. 元のサイズを取得（geometry.parametersはThree.jsの元データ）
-  const originalGeo = selectedBox.geometry.parameters;
+  // 1. サイズを取得（mesh を前提とします）
+  const geo   = selectedBox.geometry.parameters;
   const scale = selectedBox.scale;
+  const width  = geo.width  * scale.x * 100;
+  const height = geo.height * scale.y * 100;
+  const depth  = geo.depth  * scale.z * 100;
 
-  const width = originalGeo.width * scale.x * 100;
-  const height = originalGeo.height * scale.y * 100;
-  const depth = originalGeo.depth * scale.z * 100;
-
-  // 2. 元の色を取得（originalColorが保存されていればそれを使う）
+  // 2. 色を取得
   const color = selectedBox.originalColor || selectedBox.material.color.getHex();
 
-  // 3. 新しいBoxを作成
+  // 3. BoxItem を生成
   const newBox = new BoxItem(width, height, depth, color);
 
-  // 4. 元のBoxの位置に少しずらして配置
+  // 4. 位置を少しずらして配置
   const oldPos = selectedBox.position;
   newBox.setPosition(oldPos.x + 0.2, oldPos.y, oldPos.z);
 
-  // 5. シーンに追加
+  // 5. “向き” をコピー
+  newBox.mesh.rotation.copy(selectedBox.rotation);
+  // （もしスケールもコピーしたいなら）
+  // newBox.mesh.scale.copy(selectedBox.scale);
+
+  // 6. シーンに追加
   newBox.addToScene(scene);
+
+  // 7. draggableObjects には “mesh” 配列で渡す or “BoxItem” 配列で map() するか
+  //    → 今回は mesh の配列に合わせる例を示します
   draggableObjects.push(newBox.mesh);
+
+  // 8. DragControls を再設定
   setupDragControls();
 
-  // 6. メニューを閉じる
+  // 9. メニューを閉じる
   contextMenu.style.display = "none";
 });
 
