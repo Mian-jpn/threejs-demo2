@@ -44,7 +44,6 @@ const contextMenu = document.getElementById("context-menu");
 //右クリックを押したとき（contextmenuがデフォルト）
 //window.addEventListener("contextmenu", (event) => {
 renderer.domElement.addEventListener('contextmenu', event => {
-  console.log('🔥 contextmenu fired!', event);
   event.preventDefault();
 
   // Raycast: マウス下の Box を取得
@@ -297,7 +296,7 @@ function setupDragControls() {
   const dragTargets = draggableObjects.map(b => b.mesh);
   dragControls = new DragControls(dragTargets, camera, renderer.domElement);
 
-  // ← ここで「左クリックだけ」に制限
+  // 左クリックだけに制限
   dragControls.mouseButtons = {
     LEFT: THREE.MOUSE.LEFT,
     MIDDLE: null,
@@ -305,39 +304,107 @@ function setupDragControls() {
   };
 
   let currentBoxItem = null;
+  let touchedBox = null;
+  let collisionHandled = false;
 
-  // ドラッグ開始時に BoxItem を特定し、前回位置を記憶
+  // ドラッグ開始時
   dragControls.addEventListener('dragstart', e => {
     orbit.enabled = false;
-    // e.object は Mesh なので BoxItem を逆引き
     currentBoxItem = draggableObjects.find(b => b.mesh === e.object);
-    // safety: 直前の有効ポジションを再度セット
+    // 衝突前の「有効な位置」を記憶
     currentBoxItem.previousPosition = currentBoxItem.mesh.position.clone();
+    touchedBox = null;
+    collisionHandled = false;
   });
-  // ドラッグ中に毎フレーム衝突チェック
+
+  // ドラッグ中の衝突検知＆緑点灯
   dragControls.addEventListener('drag', e => {
     if (!currentBoxItem) return;
-    // ① 動かしたあとの Box の AABB を計算
     const movingBox3 = new THREE.Box3().setFromObject(currentBoxItem.mesh);
+    let isTouching = false;
 
-    // ② 他の BoxItem すべてとぶつかるかチェック
     for (const other of draggableObjects) {
       if (other === currentBoxItem) continue;
       const otherBox3 = new THREE.Box3().setFromObject(other.mesh);
       if (movingBox3.intersectsBox(otherBox3)) {
-        //衝突したら前回の有効位置に戻して終わり
-        currentBoxItem.mesh.position.copy(currentBoxItem.previousPosition)
-        return;
+        isTouching = true;
+        touchedBox = other;
+        break;
       }
     }
-    //衝突しなかったらこの位置は有効と記憶しなおす。
-    currentBoxItem.previousPosition.copy(currentBoxItem.mesh.position);
+
+    if (isTouching) {
+      // 初回衝突時のみ、いったん前回位置に戻す
+      if (!collisionHandled) {
+        currentBoxItem.mesh.position.copy(currentBoxItem.previousPosition);
+        collisionHandled = true;
+      }
+      currentBoxItem.mesh.material.emissive.setHex(0x00ff00);
+      touchedBox.mesh.material.emissive.setHex(0x00ff00);
+    } else {
+      // 衝突していなければ色リセット
+      draggableObjects.forEach(b => b.mesh.material.emissive.setHex(0x000000));
+    }
   });
-  dragControls.addEventListener('dragend', (e) => {
+
+  dragControls.addEventListener('dragend', e => {
     orbit.enabled = true;
+
+    if (currentBoxItem) {
+      // ① 今の位置で衝突している Box を探す
+      const aBox = new THREE.Box3().setFromObject(currentBoxItem.mesh);
+      let collisions = [];
+
+      for (const other of draggableObjects) {
+        if (other === currentBoxItem) continue;
+        const bBox = new THREE.Box3().setFromObject(other.mesh);
+        if (aBox.intersectsBox(bBox)) {
+          collisions.push({ item: other, box: bBox });
+        }
+      }
+
+      if (collisions.length > 0) {
+        // ② 複数衝突していたら、その中で最も浅いオーバーラップ深さの軸をもつものを選ぶ
+        //    （今回はひとつずつ処理してもOK）
+        const { item: target } = collisions[0];
+        const aCenter = aBox.getCenter(new THREE.Vector3());
+        const bBox = new THREE.Box3().setFromObject(target.mesh);
+        const bCenter = bBox.getCenter(new THREE.Vector3());
+        const aSize = aBox.getSize(new THREE.Vector3());
+        const bSize = bBox.getSize(new THREE.Vector3());
+
+        const overlaps = {
+          x: (aSize.x / 2 + bSize.x / 2) - Math.abs(aCenter.x - bCenter.x),
+          y: (aSize.y / 2 + bSize.y / 2) - Math.abs(aCenter.y - bCenter.y),
+          z: (aSize.z / 2 + bSize.z / 2) - Math.abs(aCenter.z - bCenter.z),
+        };
+
+        // 最小オーバーラップ軸を選ぶ
+        let axis = 'x';
+        let min = overlaps.x;
+        if (overlaps.y < min) { min = overlaps.y; axis = 'y'; }
+        if (overlaps.z < min) { min = overlaps.z; axis = 'z'; }
+
+        // ③ その軸方向にだけスナップ
+        const dir = (aCenter[axis] > bCenter[axis]) ? 1 : -1;
+        const snapPos = bCenter[axis] + dir * (bSize[axis] / 2 + aSize[axis] / 2);
+        // mesh.position を直接更新
+        const delta = snapPos - aCenter[axis];
+        currentBoxItem.mesh.position[axis] += delta;
+      }
+    }
+
+    // 全ての色をリセット
+    draggableObjects.forEach(b =>
+      b.mesh.material.emissive.setHex(0x000000)
+    );
+
+    // 状態をクリア
     currentBoxItem = null;
+    touchedBox = null;
   });
 }
+
 
 // アニメーション
 function animate() {
