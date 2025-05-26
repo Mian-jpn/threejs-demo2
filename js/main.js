@@ -244,10 +244,6 @@ window.addEventListener("click", (event) => {
   // (3) ハイライトをすべて元に戻す
   updateSelectionVisuals();
 
-  // (4) 整列ツールバーを隠す
-  showAlignToolbar();
-
-
   // Boxを選択しているとき
   // 最前面の Mesh を取り出し
   const pickedMesh = intersects[0].object;
@@ -564,7 +560,6 @@ document.getElementById("align-back").addEventListener("click", () => {
 //UIを閉じる
 window.addEventListener("click", event => {
   if (!event.shiftKey) selectedBoxes = [];
-  showAlignToolbar();
 })
 
 //Shiftクリックの時にBoxに黄色くする
