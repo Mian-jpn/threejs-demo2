@@ -156,7 +156,6 @@ window.addEventListener("click", (event) => {
   const clickedInsideMenu =
     event.target.closest("#context-menu") ||
     event.target.closest("#rotate-submenu") ||
-    event.target.closest('#align-toolbar') ||
     event.target.closest("#toolbar");
 
   if (!clickedInsideMenu) {
@@ -182,8 +181,7 @@ window.addEventListener("click", (event) => {
     if (
       event.target.closest("#toolbar") ||
       event.target.closest("#context-menu") ||
-      event.target.closest("#rotate-submenu") ||
-      event.target.closest("#align-toolbar")
+      event.target.closest("#rotate-submenu") 
     ) return;
 
     // 2) マウス座標を Three.js 用にセット & Raycaster 更新
@@ -219,8 +217,7 @@ window.addEventListener("click", (event) => {
   if (
     event.target.closest("#toolbar") ||
     event.target.closest("#context-menu") ||
-    event.target.closest("#rotate-submenu") ||
-    event.target.closest("#align-toolbar")
+    event.target.closest("#rotate-submenu") 
   ) {
     return;
   }
@@ -452,22 +449,6 @@ document.getElementById("btn-1x6").addEventListener("click", () => {
   selectBoxType("1x6");
 });
 
-function showAlignToolbar() {
-  const tb = document.getElementById("align-toolbar");
-  tb.style.display = selectedBoxes.length > 1 ? "block" : "none";
-}
-
-//横揃え（Y座標を平均に揃える）
-document.getElementById("align-h").addEventListener("click", () => {
-  const avgY = selectedBoxes.reduce((sum, b) => sum + b.mesh.position.y, 0) / selectedBoxes.length;
-  selectedBoxes.forEach(b => b.mesh.position.y = avgY);
-})
-
-//縦揃え（X座標を平均に揃える）
-document.getElementById("align-v").addEventListener("click", () => {
-  const avgX = selectedBoxes.reduce((sum, b) => sum + b.mesh.position.x, 0) / selectedBoxes.length;
-  selectedBoxes.forEach(b => b.mesh.position.x = avgX);
-})
 //左端を揃える
 document.getElementById("align-left").addEventListener("click", () => {
   if (selectedBoxes.length < 2) return;
