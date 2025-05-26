@@ -26,10 +26,15 @@ export class BoxItem {
     // 👇 必要に応じて保持
     this.mesh = mesh;
     this.edgeLines = edgeLines;
+
+    //衝突防止ように前回のpositionを記憶する用のプロパティ
+    this.previousPosition = this.group.position.clone();
   }
 
   setPosition(x, y, z) {
     this.group.position.set(x, y, z);
+    // 初期配置時も「有効な位置」として記憶
+    this.previousPosition.copy(this.group.position);
   }
 
   addToScene(scene) {

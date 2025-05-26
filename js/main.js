@@ -41,7 +41,10 @@ const draggableObjects = []; //BoxItem[]
 
 const contextMenu = document.getElementById("context-menu");
 
-window.addEventListener("contextmenu", (event) => {
+//右クリックを押したとき（contextmenuがデフォルト）
+//window.addEventListener("contextmenu", (event) => {
+renderer.domElement.addEventListener('contextmenu', event => {
+  console.log('🔥 contextmenu fired!', event);
   event.preventDefault();
 
   // Raycast: マウス下の Box を取得
@@ -50,7 +53,10 @@ window.addEventListener("contextmenu", (event) => {
 
   raycaster.setFromCamera(mouse, camera);
 
-  const intersects = raycaster.intersectObjects(draggableObjects, true);
+  const intersects = raycaster.intersectObjects(
+    draggableObjects.map(b => b.mesh),  // ← mesh 配列に変換
+    true
+  );
 
   if (intersects.length > 0) {
     const mesh = intersects[0].object;
@@ -65,7 +71,7 @@ window.addEventListener("contextmenu", (event) => {
   }
 });
 
-//右クリックで削除を選択したとき
+//削除を選択したとき
 document.getElementById("menu-delete").addEventListener("click", () => {
   if (selectedBox) {
     scene.remove(selectedBox.parent);
@@ -151,6 +157,7 @@ window.addEventListener("click", (event) => {
   const clickedInsideMenu =
     event.target.closest("#context-menu") ||
     event.target.closest("#rotate-submenu") ||
+    event.target.closest('#align-toolbar') ||
     event.target.closest("#toolbar");
 
   if (!clickedInsideMenu) {
@@ -159,7 +166,7 @@ window.addEventListener("click", (event) => {
   }
 });
 
-//左クリックで木材を選択したときに、長さを出すようにしている。
+//右クリックで木材を選択したときに、長さを出すようにしている。
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let selectedBox = null;
@@ -284,15 +291,51 @@ window.addEventListener("click", (event) => {
 });
 
 let dragControls; // ← 外で宣言しておく
+
 function setupDragControls() {
   if (dragControls) dragControls.dispose(); // 古いコントロールを破棄
-  dragControls = new DragControls(draggableObjects.map(b => b.mesh), camera, renderer.domElement);
+  const dragTargets = draggableObjects.map(b => b.mesh);
+  dragControls = new DragControls(dragTargets, camera, renderer.domElement);
 
-  dragControls.addEventListener('dragstart', () => {
+  // ← ここで「左クリックだけ」に制限
+  dragControls.mouseButtons = {
+    LEFT: THREE.MOUSE.LEFT,
+    MIDDLE: null,
+    RIGHT: null
+  };
+
+  let currentBoxItem = null;
+
+  // ドラッグ開始時に BoxItem を特定し、前回位置を記憶
+  dragControls.addEventListener('dragstart', e => {
     orbit.enabled = false;
+    // e.object は Mesh なので BoxItem を逆引き
+    currentBoxItem = draggableObjects.find(b => b.mesh === e.object);
+    // safety: 直前の有効ポジションを再度セット
+    currentBoxItem.previousPosition = currentBoxItem.mesh.position.clone();
   });
-  dragControls.addEventListener('dragend', () => {
+  // ドラッグ中に毎フレーム衝突チェック
+  dragControls.addEventListener('drag', e => {
+    if (!currentBoxItem) return;
+    // ① 動かしたあとの Box の AABB を計算
+    const movingBox3 = new THREE.Box3().setFromObject(currentBoxItem.mesh);
+
+    // ② 他の BoxItem すべてとぶつかるかチェック
+    for (const other of draggableObjects) {
+      if (other === currentBoxItem) continue;
+      const otherBox3 = new THREE.Box3().setFromObject(other.mesh);
+      if (movingBox3.intersectsBox(otherBox3)) {
+        //衝突したら前回の有効位置に戻して終わり
+        currentBoxItem.mesh.position.copy(currentBoxItem.previousPosition)
+        return;
+      }
+    }
+    //衝突しなかったらこの位置は有効と記憶しなおす。
+    currentBoxItem.previousPosition.copy(currentBoxItem.mesh.position);
+  });
+  dragControls.addEventListener('dragend', (e) => {
     orbit.enabled = true;
+    currentBoxItem = null;
   });
 }
 
