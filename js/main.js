@@ -207,9 +207,8 @@ window.addEventListener("click", (event) => {
     if (idx >= 0) selectedBoxes.splice(idx, 1);
     else selectedBoxes.push(box);
 
-    // 7) ビジュアル更新＆整列ツールバー表示
+    // 7) ビジュアル更新
     updateSelectionVisuals();
-    showAlignToolbar();
 
     // 単一選択処理は走らせない
     return;
@@ -542,6 +541,42 @@ document.getElementById("align-right").addEventListener("click", () => {
     const bb = new THREE.Box3().setFromObject(b.group);
     const delta = targetX - bb.max.x;
     b.group.position.x += delta;
+  });
+});
+// ———— 手前揃え（Z軸の最大値をそろえる） ————
+document.getElementById("align-front").addEventListener("click", () => {
+  if (selectedBoxes.length < 2) return;
+
+  // 各 BoxItem の AABB を計算して、最大 z（手前側）を取得
+  const maxsZ = selectedBoxes.map(b => {
+    const bb = new THREE.Box3().setFromObject(b.group);
+    return bb.max.z;
+  });
+  const targetZ = Math.max(...maxsZ);
+
+  // それぞれの BoxItem を targetZ に揃える
+  selectedBoxes.forEach(b => {
+    const bb = new THREE.Box3().setFromObject(b.group);
+    const delta = targetZ - bb.max.z;
+    b.group.position.z += delta;
+  });
+});
+// ———— 奥揃え（Z軸の最小値をそろえる） ————
+document.getElementById("align-back").addEventListener("click", () => {
+  if (selectedBoxes.length < 2) return;
+
+  // 各 BoxItem の AABB を計算して、最小 z（奥側）を取得
+  const minsZ = selectedBoxes.map(b => {
+    const bb = new THREE.Box3().setFromObject(b.group);
+    return bb.min.z;
+  });
+  const targetZ = Math.min(...minsZ);
+
+  // それぞれの BoxItem を targetZ に揃える
+  selectedBoxes.forEach(b => {
+    const bb = new THREE.Box3().setFromObject(b.group);
+    const delta = targetZ - bb.min.z;
+    b.group.position.z += delta;
   });
 });
 
