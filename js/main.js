@@ -469,6 +469,81 @@ document.getElementById("align-v").addEventListener("click", () => {
   const avgX = selectedBoxes.reduce((sum, b) => sum + b.mesh.position.x, 0) / selectedBoxes.length;
   selectedBoxes.forEach(b => b.mesh.position.x = avgX);
 })
+//左端を揃える
+document.getElementById("align-left").addEventListener("click", () => {
+  if (selectedBoxes.length < 2) return;
+
+  // 各 BoxItem のグループごとの境界箱を計算し、最小 X を取得
+  const mins = selectedBoxes.map(b => {
+    const bb = new THREE.Box3().setFromObject(b.group);
+    return bb.min.x;
+  });
+  const targetX = Math.min(...mins);
+
+  // それぞれの BoxItem を targetX に揃える
+  selectedBoxes.forEach(b => {
+    const bb = new THREE.Box3().setFromObject(b.group);
+    const delta = targetX - bb.min.x;
+    b.group.position.x += delta;
+  });
+});
+
+// 上端を揃える（Y 軸の最大値をそろえる）
+document.getElementById("align-top").addEventListener("click", () => {
+  if (selectedBoxes.length < 2) return;
+
+  // 各 BoxItem の境界箱を計算し、最大 Y を取得
+  const maxs = selectedBoxes.map(b => {
+    const bb = new THREE.Box3().setFromObject(b.group);
+    return bb.max.y;
+  });
+  const targetY = Math.max(...maxs);
+
+  // それぞれの BoxItem の top (= bb.max.y) を targetY にそろえる
+  selectedBoxes.forEach(b => {
+    const bb = new THREE.Box3().setFromObject(b.group);
+    const delta = targetY - bb.max.y;
+    b.group.position.y += delta;
+  });
+});
+
+// ———— 下端揃え（Y 軸の最小値をそろえる） ————
+document.getElementById("align-bottom").addEventListener("click", () => {
+  if (selectedBoxes.length < 2) return;
+
+  // 各 BoxItem の境界箱を計算し、最小 Y を取得
+  const minsY = selectedBoxes.map(b => {
+    const bb = new THREE.Box3().setFromObject(b.group);
+    return bb.min.y;
+  });
+  const targetY = Math.min(...minsY);
+
+  // それぞれの BoxItem を targetY に揃える
+  selectedBoxes.forEach(b => {
+    const bb = new THREE.Box3().setFromObject(b.group);
+    const delta = targetY - bb.min.y;
+    b.group.position.y += delta;
+  });
+});
+
+// ———— 右端揃え（X 軸の最大値をそろえる） ————
+document.getElementById("align-right").addEventListener("click", () => {
+  if (selectedBoxes.length < 2) return;
+
+  // 各 BoxItem の境界箱を計算し、最大 X を取得
+  const maxsX = selectedBoxes.map(b => {
+    const bb = new THREE.Box3().setFromObject(b.group);
+    return bb.max.x;
+  });
+  const targetX = Math.max(...maxsX);
+
+  // それぞれの BoxItem を targetX に揃える
+  selectedBoxes.forEach(b => {
+    const bb = new THREE.Box3().setFromObject(b.group);
+    const delta = targetX - bb.max.x;
+    b.group.position.x += delta;
+  });
+});
 
 //UIを閉じる
 window.addEventListener("click", event => {
